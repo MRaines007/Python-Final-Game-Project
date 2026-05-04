@@ -1,6 +1,8 @@
 import pygame
 import random
 import math
+import sys
+import asyncio
 
 # Initialize Pygame
 pygame.init()
@@ -26,11 +28,11 @@ LANE_WHITE = (240, 240, 240)
 
 # School colors
 SCHOOL_COLORS = {
-    "Montclair State": {"primary": (200, 50, 50), "secondary": WHITE},  # Red and White
-    "Rowan": {"primary": (101, 67, 33), "secondary": (218, 165, 32)},  # Brown and Gold
-    "William Paterson": {"primary": (255, 140, 0), "secondary": BLACK},  # Orange and Black
-    "Rutgers Newark": {"primary": (204, 0, 51), "secondary": GRAY},  # Scarlet and Gray
-    "NJCU": {"primary": (0, 100, 0), "secondary": (218, 165, 32)},  # Green and Gold
+    "Montclair State": {"primary": (200, 50, 50), "secondary": WHITE},
+    "Rowan": {"primary": (101, 67, 33), "secondary": (218, 165, 32)},
+    "William Paterson": {"primary": (255, 140, 0), "secondary": BLACK},
+    "Rutgers Newark": {"primary": (204, 0, 51), "secondary": GRAY},
+    "NJCU": {"primary": (0, 100, 0), "secondary": (218, 165, 32)},
 }
 
 # Game constants
@@ -185,8 +187,8 @@ class Runner:
 
         # Arms (pumping motion)
         arm_swing = math.sin(self.leg_phase) * 25 if self.speed > 0 else 0
-        # Left arm
         arm_y = draw_y - 35 + body_bob
+        # Left arm
         pygame.draw.line(screen, (210, 180, 140),
                          (draw_x - 8, arm_y),
                          (draw_x - 15 + arm_swing * 0.3, arm_y + 20 - abs(arm_swing) * 0.2), 4)
@@ -216,8 +218,6 @@ class Runner:
         # School name above runner
         name_text = font_tiny.render(self.school.split()[0], True, BLACK)
         screen.blit(name_text, (draw_x - name_text.get_width() // 2, draw_y - 80))
-
-
 class Hurdle:
     def __init__(self, distance, lane=None):
         self.distance = distance  # in meters
@@ -239,6 +239,7 @@ class Hurdle:
             # Vertical posts
             pygame.draw.rect(screen, ORANGE, (x - 2, lane_y - HURDLE_HEIGHT + 5, 4, HURDLE_HEIGHT - 5))
             pygame.draw.rect(screen, ORANGE, (x + HURDLE_WIDTH - 2, lane_y - HURDLE_HEIGHT + 5, 4, HURDLE_HEIGHT - 5))
+
             # Top bar with stripes
             for i in range(5):
                 color = ORANGE if i % 2 == 0 else WHITE
@@ -257,14 +258,12 @@ class Hurdle:
         if self.knocked[runner_index]:
             return False
 
-        # Calculate runner position relative to hurdle
         runner_distance = runner.distance
         hurdle_start = self.distance - 0.3
         hurdle_end = self.distance + 0.3
 
         # Check if runner is at hurdle position
         if hurdle_start <= runner_distance <= hurdle_end:
-            # Check vertical collision (runner must be above hurdle)
             jump_height = GROUND_Y - runner.y
             if jump_height < HURDLE_HEIGHT - 10:  # Not jumping high enough
                 return True
@@ -273,7 +272,6 @@ class Hurdle:
 
 class Game:
     def __init__(self):
-        self.clock = pygame.time.Clock()
         self.state = "start"  # start, countdown, running, finished
         self.reset_game()
 
@@ -296,7 +294,7 @@ class Game:
 
         # Create hurdles (standard 100m hurdle positions)
         self.hurdles = []
-        hurdle_positions = [13, 22, 31, 40, 49, 58, 67, 76, 85, 94]  # Approximate meter positions
+        hurdle_positions = [13, 22, 31, 40, 49, 58, 67, 76, 85, 94]
         for pos in hurdle_positions:
             self.hurdles.append(Hurdle(pos))
 
@@ -304,7 +302,7 @@ class Game:
         self.timer = 0
         self.countdown = 3
         self.countdown_timer = 0
-        self.leg_alternate = 0  # Track which leg was pressed last
+        self.leg_alternate = 0
         self.race_started = False
         self.keys_pressed = {"left": False, "right": False}
 
@@ -393,9 +391,9 @@ class Game:
         for i in range(200):
             x = (i * 7 + int(self.camera_offset * 0.1)) % SCREEN_WIDTH
             y = 110 + (i % 4) * 10
-            color = random.choice([RED, BLUE, YELLOW, WHITE, GREEN]) if i % 20 == 0 else (random.randint(50, 100),
-                                                                                          random.randint(50, 100),
-                                                                                          random.randint(50, 100))
+            color = random.choice([RED, BLUE, YELLOW, WHITE, GREEN]) if i % 20 == 0 else (
+                random.randint(50, 100), random.randint(50, 100), random.randint(50, 100)
+            )
             pygame.draw.circle(screen, color, (x, y), 3)
 
         # Track surface
@@ -439,12 +437,14 @@ class Game:
         pygame.draw.rect(screen, WHITE, (10, 70, distance_text.get_width() + 20, 40), border_radius=10)
         screen.blit(distance_text, (20, 78))
 
-        # Speed indicator
+        # Speed bar
         speed_pct = self.player.speed / self.player.max_speed
         pygame.draw.rect(screen, WHITE, (SCREEN_WIDTH - 220, 10, 210, 50), border_radius=10)
         pygame.draw.rect(screen, GRAY, (SCREEN_WIDTH - 210, 25, 180, 20), border_radius=5)
-        pygame.draw.rect(screen, GREEN if speed_pct > 0.7 else YELLOW if speed_pct > 0.3 else RED,
-                         (SCREEN_WIDTH - 210, 25, int(180 * speed_pct), 20), border_radius=5)
+        pygame.draw.rect(screen,
+                        GREEN if speed_pct > 0.7 else YELLOW if speed_pct > 0.3 else RED,
+                        (SCREEN_WIDTH - 210, 25, int(180 * speed_pct), 20),
+                        border_radius=5)
         speed_label = font_tiny.render("SPEED", True, BLACK)
         screen.blit(speed_label, (SCREEN_WIDTH - 150, 5))
 
@@ -454,11 +454,11 @@ class Game:
             pygame.draw.rect(screen, WHITE, (10, 120, penalty_text.get_width() + 20, 35), border_radius=10)
             screen.blit(penalty_text, (20, 125))
 
-        # Controls reminder
+        # Controls
         controls = font_tiny.render("← → = Run | SPACE = Jump", True, WHITE)
         screen.blit(controls, (SCREEN_WIDTH // 2 - controls.get_width() // 2, SCREEN_HEIGHT - 30))
 
-        # Position indicator
+        # Position
         positions = sorted(self.runners, key=lambda r: r.distance, reverse=True)
         player_pos = positions.index(self.player) + 1
         pos_text = font_medium.render(f"Position: {player_pos}/5", True, BLACK)
@@ -468,15 +468,12 @@ class Game:
     def draw_start_screen(self):
         screen.fill((50, 50, 80))
 
-        # Title
         title = font_large.render("100m HURDLE RACE", True, WHITE)
         screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 100))
 
-        # Subtitle
         subtitle = font_medium.render("Montclair State University", True, RED)
         screen.blit(subtitle, (SCREEN_WIDTH // 2 - subtitle.get_width() // 2, 180))
 
-        # Instructions
         instructions = [
             "CONTROLS:",
             "",
@@ -493,46 +490,44 @@ class Game:
             text = font_small.render(line, True, color)
             screen.blit(text, (SCREEN_WIDTH // 2 - text.get_width() // 2, 280 + i * 35))
 
-        # Draw sample runner
         pygame.draw.ellipse(screen, RED, (SCREEN_WIDTH // 2 - 12, 520, 24, 35))
         pygame.draw.circle(screen, (210, 180, 140), (SCREEN_WIDTH // 2, 495), 12)
 
     def draw_countdown(self):
         self.draw_track()
+
         for runner in self.runners:
             runner.draw(screen, self.camera_offset)
+
         for hurdle in self.hurdles:
             for lane in range(5):
                 hurdle.draw(screen, self.camera_offset, lane)
 
-        # Countdown overlay
         if self.countdown > 0:
             count_text = font_large.render(str(self.countdown), True, WHITE)
             pygame.draw.circle(screen, BLACK, (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2), 60)
             pygame.draw.circle(screen, RED, (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2), 55)
             screen.blit(count_text, (SCREEN_WIDTH // 2 - count_text.get_width() // 2,
-                                     SCREEN_HEIGHT // 2 - count_text.get_height() // 2))
+                                    SCREEN_HEIGHT // 2 - count_text.get_height() // 2))
         else:
             go_text = font_large.render("GO!", True, GREEN)
             screen.blit(go_text, (SCREEN_WIDTH // 2 - go_text.get_width() // 2,
-                                  SCREEN_HEIGHT // 2 - go_text.get_height() // 2))
+                                    SCREEN_HEIGHT // 2 - go_text.get_height() // 2))
 
     def draw_finished_screen(self):
         self.draw_track()
+
         for runner in self.runners:
             runner.draw(screen, self.camera_offset)
 
-        # Results overlay
         overlay = pygame.Surface((500, 400))
         overlay.set_alpha(240)
         overlay.fill((30, 30, 50))
         screen.blit(overlay, (SCREEN_WIDTH // 2 - 250, 100))
 
-        # Title
         title = font_medium.render("RACE COMPLETE!", True, YELLOW)
         screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 120))
 
-        # Rankings
         rankings = sorted(self.runners, key=lambda r: r.finish_time)
         for i, runner in enumerate(rankings):
             color = YELLOW if i == 0 else WHITE
@@ -546,7 +541,6 @@ class Game:
             rank_text = font_small.render(text, True, color)
             screen.blit(rank_text, (SCREEN_WIDTH // 2 - rank_text.get_width() // 2, 180 + i * 45))
 
-        # Player result message
         player_rank = rankings.index(self.player)
         if player_rank == 0:
             message = "CONGRATULATIONS! YOU WON!"
@@ -558,7 +552,6 @@ class Game:
         msg_text = font_medium.render(message, True, msg_color)
         screen.blit(msg_text, (SCREEN_WIDTH // 2 - msg_text.get_width() // 2, 420))
 
-        # Restart prompt
         restart = font_small.render("Press SPACE to play again", True, WHITE)
         screen.blit(restart, (SCREEN_WIDTH // 2 - restart.get_width() // 2, 470))
 
@@ -575,28 +568,38 @@ class Game:
                 for lane in range(5):
                     hurdle.draw(screen, self.camera_offset, lane)
 
-            # Draw runners (sorted by lane for proper layering)
+            # Draw runners
             for runner in sorted(self.runners, key=lambda r: r.lane):
                 runner.draw(screen, self.camera_offset)
 
             self.draw_hud()
+
         elif self.state == "finished":
             self.draw_finished_screen()
 
         pygame.display.flip()
 
-    def run(self):
-        running = True
-        while running:
-            running = self.handle_events()
-            self.update()
-            self.draw()
-            self.clock.tick(FPS)
+# -------------------------------
+# ASYNC MAIN LOOP FOR PYGBAG
+# -------------------------------
 
-        pygame.quit()
-
-
-# Run the game
-if __name__ == "__main__":
+async def main():
+    global game
     game = Game()
-    game.run()
+
+    running = True
+    clock = pygame.time.Clock()
+
+    while running:
+        running = game.handle_events()
+        game.update()
+        game.draw()
+
+        clock.tick(FPS)
+        await asyncio.sleep(0)  # required for pygbag browser loop
+
+    pygame.quit()
+    sys.exit()
+
+if __name__ == "__main__":
+    asyncio.run(main())
